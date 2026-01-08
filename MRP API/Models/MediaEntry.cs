@@ -12,9 +12,12 @@ namespace MRP_API.Models
         public required string Title { get; set; }
         public required string Type { get; set; }
         public required string Description { get; set; }
-        public required string ReleaseYear { get; set; }
+        public required int ReleaseYear { get; set; }
         public required string Genre { get; set; }
-        public required string AgeRestriction { get; set; }
-        public List<Rating> Ratings { get; set; } = new List<Rating>();
+        public required int AgeRestriction { get; set; }
+        public List<Rating> Ratings { get; set; } = new();
+        public required string CreatorUsername { get; set; }
+        public double AverageScore { get; set; } = 0;
+        public required List<string> Genres { get; set; }
     }
 }

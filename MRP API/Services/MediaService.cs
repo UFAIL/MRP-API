@@ -7,25 +7,21 @@ using System.Threading.Tasks;
 
 namespace MRP_API.Services
 {
-    internal class MediaService
+    internal static class MediaService
     {
-        private static List<MediaEntry> _media = new List<MediaEntry>();
+        private static readonly List<MediaEntry> _media = new();
+        private static int _nextId = 1;
 
-        public static MediaEntry CreateMediaEntry(string title, string type, string description, string releaseYear, string genre, string ageRestriction)
+        public static MediaEntry CreateMediaEntry(MediaEntry media, string creatorUsername)
         {
-            var newEntry = new MediaEntry
-            {
-                Id = _media.Count + 1,
-                Title = title,
-                Type = type,
-                Description = description,
-                ReleaseYear = releaseYear,
-                Genre = genre,
-                AgeRestriction = ageRestriction
-            };
+            media.Id = _nextId++;
+            media.CreatorUsername = creatorUsername;
+            media.Ratings = new List<Rating>();
+            media.AverageScore = 0;
 
-            _media.Add(newEntry);
-            return newEntry;
+            _media.Add(media);
+
+            return media;
         }
 
         public static List<MediaEntry> GetAllMedia()
@@ -35,58 +31,129 @@ namespace MRP_API.Services
 
         public static MediaEntry? GetMediaById(int id)
         {
-            return _media.Find(media => media.Id == id);
+            return _media.FirstOrDefault(media => media.Id == id);
         }
 
-        public static bool UpdateMediaById(int id, string? title = null, string? type = null, string? description = null, string? releaseYear = null, string? genre = null, string? ageRestriction = null)
+        public static bool UpdateMediaById(int id, MediaEntry update, string requester)
         {
             var media = GetMediaById(id);
-            if (media != null)
+
+            if (media == null)
             {
-                if(title != null)
-                {
-                    media.Title = title;
-                }
-
-                if (type != null)
-                {
-                    media.Type = type;
-                }
-
-                if (description != null)
-                {
-                    media.Description = description;
-                }
-
-                if (releaseYear != null)
-                {
-                    media.ReleaseYear = releaseYear;
-                }
-
-                if (genre != null)
-                {
-                    media.Genre = genre;
-                }
-
-                if (ageRestriction != null)
-                {
-                    media.AgeRestriction = ageRestriction;
-                }
+                return false;
+            }
                 
-                return true;
+
+            if (media.CreatorUsername != requester)
+            {
+                return false;
             }
-            return false;
+
+            if (!string.IsNullOrWhiteSpace(update.Title))
+            {
+                media.Title = update.Title;
+            }
+
+            if (!string.IsNullOrWhiteSpace(update.Description))
+            {
+                media.Description = update.Description;
+            }
+
+            if (!string.IsNullOrWhiteSpace(update.Type))
+            {
+                media.Type = update.Type;
+            }
+
+            if (update.ReleaseYear != 0)
+            {
+                media.ReleaseYear = update.ReleaseYear;
+            }
+
+            if (update.Genres != null && update.Genres.Any())
+            {
+                media.Genres = update.Genres;
+            }
+                
+
+            if (update.AgeRestriction != 0)
+            {
+                update.AgeRestriction = update.AgeRestriction;
+            }
+
+            return true;
         }
 
-        public static bool DeleteMediaById(int id)
+        public static bool DeleteMediaById(int id, string requester)
         {
             var media = GetMediaById(id);
-            if (media != null)
+
+            if (media == null)
             {
-                _media.Remove(media);
-                return true;
+                return false;
             }
-            return false;
+
+            if (media.CreatorUsername != requester)
+            {
+                return false;
+            }
+
+            _media.Remove(media);
+
+            return true;
+        }
+
+        internal static void RecalculateAverage(MediaEntry media)
+        {
+            media.AverageScore = media.Ratings.Any()
+                ? media.Ratings.Average(r => r.Stars)
+                : 0;
+        }
+
+        public static List<MediaEntry> SearchAndFilter(string? search, string? type, string? genre, int? year, int? minRating, string? sort)
+        {
+            IEnumerable<MediaEntry> query = _media;
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                query = query.Where(m => m.Title.Contains(search, StringComparison.OrdinalIgnoreCase));
+            }
+                
+
+            if (!string.IsNullOrWhiteSpace(type))
+            {
+                query = query.Where(m => m.Type.Equals(type, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrWhiteSpace(genre))
+            {
+                query = query.Where(m => m.Genre.Contains(genre, StringComparison.OrdinalIgnoreCase));
+            }
+                
+            if (year.HasValue)
+            {
+                query = query.Where(m => m.ReleaseYear == year.Value);
+            }
+                
+            if (minRating.HasValue)
+            {
+                query = query.Where(m => m.AverageScore >= minRating.Value);
+            }
+
+            query = sort switch
+            {
+                "title" => query.OrderBy(m => m.Title),
+                "year" => query.OrderBy(m => m.ReleaseYear),
+                "score" => query.OrderByDescending(m => m.AverageScore),
+                _ => query
+            };
+
+            return query.ToList();
+        }
+
+        public static void Clear()
+        {
+            _media.Clear();
+            _nextId = 1;
         }
     }
 }

@@ -20,7 +20,10 @@ namespace MRP_API.Utilities
         // $argon2id$v=19$m=<mem>,t=<iter>,p=<parallel>$<base64salt>$<base64hash>
         public static string HashPassword(string password)
         {
-            if (password is null) throw new ArgumentNullException(nameof(password));
+            if (password is null)
+            {
+                throw new ArgumentNullException(nameof(password));
+            }
 
             var salt = new byte[SaltSize];
             RandomNumberGenerator.Fill(salt);
@@ -44,28 +47,52 @@ namespace MRP_API.Utilities
 
         public static bool VerifyPassword(string password, string phcString)
         {
-            if (password is null) throw new ArgumentNullException(nameof(password));
-            if (phcString is null) throw new ArgumentNullException(nameof(phcString));
+            if (password is null)
+            {
+                throw new ArgumentNullException(nameof(password));
+            }
+
+            if (phcString is null)
+            {
+                throw new ArgumentNullException(nameof(phcString));
+            }
 
             // erwartet: $argon2id$v=19$m=...,t=...,p=...$<salt>$<hash>
             try
             {
                 var parts = phcString.Split('$', StringSplitOptions.RemoveEmptyEntries);
                 // parts[0] = "argon2id"; parts[1] = "v=19"; parts[2] = "m=...,t=...,p=..."; parts[3]=salt; parts[4]=hash
-                if (parts.Length != 5) return false;
-                if (parts[0] != "argon2id") return false;
+                if (parts.Length != 5)
+                {
+                    return false;
+                }
+
+                if (parts[0] != "argon2id")
+                {
+                    return false;
+                }
 
                 var paramPart = parts[2];
                 int mem = 0, iter = 0, parallel = 0;
                 foreach (var kv in paramPart.Split(',', StringSplitOptions.RemoveEmptyEntries))
                 {
                     var pair = kv.Split('=', 2);
-                    if (pair.Length != 2) continue;
+                    if (pair.Length != 2)
+                    {
+                        continue;
+                    }
+
                     switch (pair[0])
                     {
-                        case "m": mem = int.Parse(pair[1]); break;
-                        case "t": iter = int.Parse(pair[1]); break;
-                        case "p": parallel = int.Parse(pair[1]); break;
+                        case "m":
+                            mem = int.Parse(pair[1]);
+                            break;
+                        case "t":
+                            iter = int.Parse(pair[1]);
+                            break;
+                        case "p":
+                            parallel = int.Parse(pair[1]);
+                            break;
                     }
                 }
 

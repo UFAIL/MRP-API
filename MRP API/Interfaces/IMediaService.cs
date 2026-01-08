@@ -11,7 +11,7 @@ namespace MRP_API.Interfaces
     {
         MediaEntry CreateMediaEntry(string title, string type, string description, string releaseYear, string genre, string ageRestriction);
         List<MediaEntry> GetAll();
-        bool UpdateMedia(int id, string title, string type, string description);
+        bool UpdateMedia(int id, string title, string type, string description, string releaseYear, string genre, string ageRestriction);
         bool DeleteMedia(int id);
     }
 }

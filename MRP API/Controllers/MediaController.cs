@@ -13,140 +13,135 @@ using System.Threading.Tasks;
 
 namespace MRP_API.Controllers
 {
-    internal class MediaController
+    internal static class MediaController
     {
-        /*public static void HandleCreateMediaRequest(string requestBody)
+        public static void HandleCreateMediaRequest(HttpListenerContext context, string username)
         {
-            var media = JsonConvert.DeserializeObject<MediaEntry>(requestBody);
+            var body = new StreamReader(context.Request.InputStream).ReadToEnd();
+            var media = JsonConvert.DeserializeObject<MediaEntry>(body);
 
-            var newMedia = MediaService.CreateMediaEntry(media.Title, media.Type, media.Description, media.ReleaseYear, media.Genre, media.AgeRestriction);
-
-            Console.WriteLine(string.Format("Media created with ID: {0}", newMedia.Id));
-        }*/
-
-        public static void HandleCreateMediaRequest(HttpListenerContext context)
-        {
-            var requestBody = new StreamReader(context.Request.InputStream).ReadToEnd();
-            var media = JsonConvert.DeserializeObject<MediaEntry>(requestBody);
-
-            var newMedia = MediaService.CreateMediaEntry(media.Title, media.Type, media.Description, media.ReleaseYear, media.Genre, media.AgeRestriction);
-
-            if (newMedia != null)
+            if (media == null)
             {
-                string response = string.Format("Media created with ID: {0}", newMedia.Id);
-
-                HttpResponseHelper.WriteResponse(context.Response, 200, new { response });
-            } else
-            {
-                HttpResponseHelper.WriteResponse(context.Response, 401, new { error = "Media could not be created." });
-            }
-        }
-
-        /*public static void HandleGetAllMediaRequest()
-        {
-            var allMedia = MediaService.GetAllMedia();
-            Console.WriteLine(JsonConvert.SerializeObject(allMedia, Formatting.Indented));
-        }*/
-
-        public static void HandleGetAllMediaRequest(HttpListenerContext context)
-        {
-            var requestBody = new StreamReader(context.Request.InputStream).ReadToEnd();
-            var media = JsonConvert.DeserializeObject<MediaEntry>(requestBody);
-
-            var allMedia = MediaService.GetAllMedia();
-
-            if (allMedia != null)
-            {
-                //string response = JsonConvert.SerializeObject(allMedia, Formatting.Indented);
-
-                HttpResponseHelper.WriteResponse(context.Response, 200, new { allMedia });
-            } else
-            {
-                HttpResponseHelper.WriteResponse(context.Response, 401, new { error = "Media could not be retrieved." });
-            }
-        }
-
-        /*public static void HandleGetMediaByIdRequest(string requestBody)
-        {
-            var media = JsonConvert.DeserializeObject<MediaEntry>(requestBody);
-            var mediaWithId = MediaService.GetMediaById(media.Id);
-
-            if(mediaWithId != null)
-            {
-                Console.WriteLine(JsonConvert.SerializeObject(mediaWithId, Formatting.Indented));
-            } else
-            {
-                Console.WriteLine(string.Format("Media with ID {0} does not exist.", media.Id));
-            }
-            
-        }*/
-
-        public static void HandleGetMediaByIdRequest(HttpListenerContext context)
-        {
-            var requestBody = new StreamReader(context.Request.InputStream).ReadToEnd();
-            var media = JsonConvert.DeserializeObject<MediaEntry>(requestBody);
-
-            var mediaWithId = MediaService.GetMediaById(media.Id);
-
-            if (mediaWithId != null)
-            {
-                //string response = JsonConvert.SerializeObject(mediaWithId, Formatting.Indented);
-
-                HttpResponseHelper.WriteResponse(context.Response, 200, new { mediaWithId });
-            } else
-            {
-                HttpResponseHelper.WriteResponse(context.Response, 401, new { error = string.Format("Media with ID {0} could not be retrieved.", media.Id) });
-            }
-        }
-
-        public static void HandleUpdateMediaByIdRequest(string requestBody) //scheint gerade nicht zu funktionieren; muss noch bearbeitet werden
-        {
-            //var media = JsonConvert.DeserializeObject<MediaEntry>(requestBody);
-            var media = JsonConvert.DeserializeObject<Dictionary<string, string>>(requestBody);
-            int id;
-
-            if (!media.ContainsKey("id") || !int.TryParse(media["id"], out id))
-            {
-                Console.WriteLine("No ID specified or invalid request.");
+                HttpResponseHelper.WriteResponse(
+                    context.Response,
+                    400,
+                    new { error = "Invalid request body" }
+                );
                 return;
             }
 
-            //var updatedMedia = MediaService.UpdateMediaById(media.Id, media.Title, media.Type, media.Description, media.ReleaseYear, media.Genre, media.AgeRestriction);
-            var updateMedia = MediaService.UpdateMediaById(
-                id,
-                media.ContainsKey("title") ? media["title"] : null,
-                media.ContainsKey("type") ? media["type"] : null,
-                media.ContainsKey("description") ? media["description"] : null,
-                media.ContainsKey("releaseYear") ? media["releaseYear"] : null,
-                media.ContainsKey("genre") ? media["genre"] : null,
-                media.ContainsKey("ageRestriction") ? media["ageRestriction"] : null
+            var created = MediaService.CreateMediaEntry(media, username);
+
+            HttpResponseHelper.WriteResponse(
+                context.Response,
+                201,
+                created
             );
         }
 
-        /*public static void HandleDeleteMediaByIdRequest(string requestBody)
+        public static void HandleGetAllMediaRequest(HttpListenerContext context)
         {
-            var media = JsonConvert.DeserializeObject<MediaEntry>(requestBody);
-            var mediaWithId = MediaService.DeleteMediaById(media.Id);
-            Console.WriteLine(string.Format("Media with ID {0} deleted.", media.Id));
-        }*/
+            var list = MediaService.GetAllMedia();
 
-        public static void HandleDeleteMediaByIdRequest(HttpListenerContext context)
+            HttpResponseHelper.WriteResponse(
+                context.Response,
+                200,
+                list
+            );
+        }
+
+        public static void HandleGetMediaByIdRequest(HttpListenerContext context, int id)
         {
-            var requestBody = new StreamReader(context.Request.InputStream).ReadToEnd();
-            var media = JsonConvert.DeserializeObject<MediaEntry>(requestBody);
+            var media = MediaService.GetMediaById(id);
 
-            var mediaWithId = MediaService.DeleteMediaById(media.Id);
-
-            if (mediaWithId)
+            if (media == null)
             {
-                //string response = string.Format("Media with ID {0} deleted.", media.Id);
+                HttpResponseHelper.WriteResponse(
+                    context.Response,
+                    404,
+                    new { error = "Media not found" }
+                );
+                return;
+            }
 
-                HttpResponseHelper.WriteResponse(context.Response, 200, new { mediaWithId });
-            }
-            else
+            HttpResponseHelper.WriteResponse(
+                context.Response,
+                200,
+                media
+            );
+        }
+
+        public static void HandleUpdateMediaByIdRequest(HttpListenerContext context, int id, string username)
+        {
+            var body = new StreamReader(context.Request.InputStream).ReadToEnd();
+            var update = JsonConvert.DeserializeObject<MediaEntry>(body);
+
+            if (update == null)
             {
-                HttpResponseHelper.WriteResponse(context.Response, 401, new { error = string.Format("Media with ID {0} could not be deleted.", media.Id) });
+                HttpResponseHelper.WriteResponse(
+                    context.Response,
+                    400,
+                    new { error = "Invalid request body" }
+                );
+                return;
             }
+
+            var success = MediaService.UpdateMediaById(id, update, username);
+
+            if (!success)
+            {
+                HttpResponseHelper.WriteResponse(
+                    context.Response,
+                    403,
+                    new { error = "You are not allowed to update this media entry" }
+                );
+                return;
+            }
+
+            HttpResponseHelper.WriteResponse(
+                context.Response,
+                200,
+                MediaService.GetMediaById(id)
+            );
+        }
+
+        public static void HandleDeleteMediaByIdRequest(HttpListenerContext context, int id, string username)
+        {
+            var success = MediaService.DeleteMediaById(id, username);
+
+            if (!success)
+            {
+                HttpResponseHelper.WriteResponse(
+                    context.Response,
+                    403,
+                    new { error = "You are not allowed to delete this media entry" }
+                );
+                return;
+            }
+
+            HttpResponseHelper.WriteResponse(
+                context.Response,
+                204,
+                new { }
+            );
+        }
+
+        public static void HandleSearchMediaRequest(HttpListenerContext context)
+        {
+            var query = context.Request.QueryString;
+
+            string? search = query["search"];
+            string? type = query["type"];
+            string? genre = query["genre"];
+            string? sort = query["sort"];
+
+            int? year = int.TryParse(query["year"], out var y) ? y : null;
+            int? minRating = int.TryParse(query["minRating"], out var r) ? r : null;
+
+            var results = MediaService.SearchAndFilter(
+                search, type, genre, year, minRating, sort);
+
+            HttpResponseHelper.WriteResponse(context.Response, 200, results);
         }
     }
 }

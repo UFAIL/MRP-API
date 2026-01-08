@@ -12,71 +12,113 @@ using System.Xml;
 
 namespace MRP_API.Controllers
 {
-    internal class UserController
+    internal static class UserController
     {
-        /*public static void HandleRegisterRequest(string requestBody)
-        {
-            var user = JsonConvert.DeserializeObject<User>(requestBody);
-
-            if (UserService.RegisterUser(user))
-            {
-                Console.WriteLine(string.Format("User {0} registered successfully.", user.Username));
-            } else
-            {
-                Console.WriteLine("User already exists.");
-            }
-        }*/
-
         public static void HandleRegisterRequest(HttpListenerContext context)
         {
-            var requestBody = new StreamReader(context.Request.InputStream).ReadToEnd();
-            var user = JsonConvert.DeserializeObject<User>(requestBody);
+            var body = new StreamReader(context.Request.InputStream).ReadToEnd();
+            var user = JsonConvert.DeserializeObject<User>(body);
 
-            if (UserService.RegisterUser(user))
+            if (user == null ||
+                string.IsNullOrWhiteSpace(user.Username) ||
+                string.IsNullOrWhiteSpace(user.Password))
             {
-                string response = string.Format("User {0} registered successfully.", user.Username);
-
-                HttpResponseHelper.WriteResponse(context.Response, 200, new { response });
-            } else
-            {
-                HttpResponseHelper.WriteResponse(context.Response, 401, new { error = "User already exists." });
+                HttpResponseHelper.WriteResponse(
+                    context.Response,
+                    400,
+                    new { error = "Invalid input" }
+                );
+                return;
             }
+
+            bool created = UserService.RegisterUser(user);
+
+            if (!created)
+            {
+                HttpResponseHelper.WriteResponse(
+                    context.Response,
+                    409,
+                    new { error = "User already exists" }
+                );
+                return;
+            }
+
+            HttpResponseHelper.WriteResponse(
+                context.Response,
+                201,
+                new { username = user.Username }
+            );
         }
 
-        /*public static void HandleLoginRequest(string requestBody)
+        public static void HandleLoginRequest(HttpListenerContext context)
         {
-            var user = JsonConvert.DeserializeObject<User>(requestBody);
+            var body = new StreamReader(context.Request.InputStream).ReadToEnd();
+            var login = JsonConvert.DeserializeObject<User>(body);
 
-            var authenticatedUser = UserService.AuthenticateUser(user.Username, user.Password);
-
-            if (authenticatedUser != null)
+            if (login == null ||
+                string.IsNullOrWhiteSpace(login.Username) ||
+                string.IsNullOrWhiteSpace(login.Password))
             {
-                var token = string.Format("{0}-{1}", user.Username, TokenGenerator.GenerateToken(authenticatedUser.Username));
-                Console.WriteLine("Login successful.");
-                Console.WriteLine(string.Format("Token: {0}", token));    //zeigt den Token an, der fuer die Authentifizierung benutzt werden kann
-            } else
-            {
-                Console.WriteLine("Invalid username or password.");
+                HttpResponseHelper.WriteResponse(
+                    context.Response,
+                    400,
+                    new { error = "Invalid input" }
+                );
+                return;
             }
-        }*/
 
-        public static void HandleLoginRequest(HttpListenerContext context)    //sollte, sobald richtig implementiert, HandleLoginRequest ersetzen
+            var user = UserService.AuthenticateUser(login.Username, login.Password);
+
+            if (user == null)
+            {
+                HttpResponseHelper.WriteResponse(
+                    context.Response,
+                    401,
+                    new { error = "Invalid credentials" }
+                );
+                return;
+            }
+
+            var token = TokenGenerator.GenerateToken(user.Username);
+            TokenService.StoreToken(token, user.Username);
+
+            HttpResponseHelper.WriteResponse(
+                context.Response,
+                200,
+                new { token }
+            );
+        }
+
+        public static void HandleGetProfileRequest(HttpListenerContext context, string username)
         {
-            var requestBody = new StreamReader(context.Request.InputStream).ReadToEnd();
-            var user = JsonConvert.DeserializeObject<User>(requestBody);
+            var profile = UserService.GetProfile(username);
 
-            var authenticatedUser = UserService.AuthenticateUser(user.Username, user.Password);
-            if (authenticatedUser != null)
+            if (profile == null)
             {
-                var token = string.Format("{0}-{1}", user.Username, TokenGenerator.GenerateToken(authenticatedUser.Username));
-                TokenService.StoreToken(token, authenticatedUser.Username);
-                //string responseText = string.Format("Login successful. Token: {0}>", token);
-                HttpResponseHelper.WriteResponse(context.Response, 200, new { token });
-                //HttpResponseHelper.WriteResponse(context.Response, 200, new { responseText });
-            } else
-            {
-                HttpResponseHelper.WriteResponse(context.Response, 401, new { error = "Invalid username or password." });
+                HttpResponseHelper.WriteResponse(
+                    context.Response,
+                    404,
+                    new { error = "User not found" }
+                );
+                return;
             }
+
+            HttpResponseHelper.WriteResponse(
+                context.Response,
+                200,
+                profile
+            );
+        }
+
+        public static void HandleLeaderboardRequest(HttpListenerContext context)
+        {
+            var leaderboard = UserService.GetLeaderboard();
+
+            HttpResponseHelper.WriteResponse(
+                context.Response,
+                200,
+                leaderboard
+            );
         }
     }
 }
